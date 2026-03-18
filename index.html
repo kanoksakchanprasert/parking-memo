@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <!-- Meta Tags สำหรับ PWA บน iOS เพื่อป้องกันข้อมูลหายและทำตัวเหมือนแอป -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="จอดไหนเนี่ย">
+    <!-- ไอคอนสำหรับ iOS (ผมใส่เป็น Emoji ตัวรถไว้ชั่วคราวเพื่อให้มีไอคอน) -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
+    
+    <!-- ฝัง Manifest ลงไปโดยตรงเพื่อบอกว่าเป็น App -->
+    <link rel="manifest" href='data:application/manifest+json,{
+        "name": "จอดไหนเนี่ย",
+        "short_name": "จอดไหนเนี่ย",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#2563eb",
+        "icons": [{
+            "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>",
+            "sizes": "192x192",
+            "type": "image/svg+xml"
+        }]
+    }'>
+
+    <title>จอดไหนเนี่ย - The Tree Interchange</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* ซ่อน scrollbar แต่ยังเลื่อนได้ */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        body {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            -webkit-tap-highlight-color: transparent;
+            /* ป้องกันการเด้งเวลาดึงหน้าจอสุดขอบบน iOS */
+            overscroll-behavior-y: none;
+        }
+        /* แอนิเมชันปุ่มตอนกด */
+        .btn-press:active {
+            transform: scale(0.95);
+        }
+        /* ดันเนื้อหาลงมาหลบ Notch ของ iPhone */
+        .safe-area-top {
+            padding-top: env(safe-area-inset-top);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen pb-10 flex flex-col">
+
+    <!-- Container -->
+    <div class="max-w-md w-full mx-auto bg-white min-h-screen shadow-lg relative flex flex-col">
+        
+        <!-- Header -->
+        <header class="bg-blue-600 text-white p-4 safe-area-top sticky top-0 z-10 shadow-md flex justify-between items-center">
+            <h1 class="text-xl font-bold"><i class="fa-solid fa-car-side mr-2"></i> จอดไหนเนี่ย</h1>
+            <div id="toast" class="opacity-0 transition-opacity duration-300 text-sm bg-blue-800 px-3 py-1 rounded-full">
+                <i class="fa-solid fa-check mr-1"></i> บันทึกแล้ว
+            </div>
+        </header>
+
+        <main class="p-5 flex-1 flex flex-col">
+            
+            <!-- ส่วนเลือกสถานที่ -->
+            <div class="flex gap-2 mb-4 overflow-x-auto pb-2 shrink-0">
+                <button class="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap shadow-sm">
+                    <i class="fa-solid fa-building mr-1"></i> The Tree Interchange
+                </button>
+                <button class="bg-slate-100 text-slate-400 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap border border-slate-200 cursor-not-allowed">
+                    <i class="fa-solid fa-briefcase mr-1"></i> ที่ทำงาน (เร็วๆ นี้)
+                </button>
+            </div>
+
+            <!-- ส่วนแสดงผลล่าสุด (Display Card) -->
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 mb-8 border border-blue-100 shadow-sm text-center shrink-0">
+                <p class="text-slate-500 text-sm mb-2">ตำแหน่งรถล่าสุดของคุณ</p>
+                <p class="text-blue-800 font-bold text-lg mb-4" id="display-location">The Tree Interchange</p>
+                
+                <div class="flex justify-center items-center mb-2">
+                    <div class="flex flex-col items-center">
+                        <span class="text-sm text-slate-400 uppercase tracking-wide">ชั้น (Floor)</span>
+                        <span id="display-floor" class="text-8xl font-black text-blue-600 leading-tight mt-1">-</span>
+                    </div>
+                </div>
+
+                <p id="display-time" class="text-xs text-slate-400 mt-4"><i class="fa-regular fa-clock"></i> ยังไม่มีข้อมูล</p>
+
+                <!-- รูปภาพ -->
+                <div id="photo-container" class="hidden mt-4 relative">
+                    <img id="display-photo" src="" alt="รูปที่จอดรถ" class="w-full h-48 object-cover rounded-xl shadow-sm border border-slate-200">
+                    <button onclick="clearPhoto()" class="absolute top-2 right-2 bg-white/80 text-red-500 w-10 h-10 rounded-full shadow backdrop-blur-sm btn-press flex items-center justify-center">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ส่วนกดเลือกชั้น -->
+            <div class="mb-8 flex-1">
+                <h2 class="text-sm font-bold text-slate-700 mb-3"><i class="fa-solid fa-layer-group text-blue-500 mr-2"></i>เลือกชั้น (Floor)</h2>
+                <div class="grid grid-cols-3 gap-3" id="floor-buttons">
+                    <!-- ปุ่มถูกสร้างผ่าน JavaScript -->
+                </div>
+            </div>
+
+            <!-- ปุ่มถ่ายรูปและปุ่มเคลียร์ -->
+            <div class="flex gap-3 mt-auto pt-4 shrink-0 pb-6">
+                <label class="flex-1 bg-slate-800 text-white text-center py-4 rounded-xl font-bold shadow-md btn-press cursor-pointer flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-camera text-xl"></i> ถ่ายรูปรอบๆ
+                    <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoUpload(event)">
+                </label>
+                
+                <button onclick="clearAllData()" class="bg-red-100 text-red-600 px-6 py-4 rounded-xl font-bold btn-press flex items-center justify-center shadow-sm">
+                    <i class="fa-solid fa-flag-checkered text-xl"></i>
+                </button>
+            </div>
+            <p class="text-center text-xs text-slate-400 mt-3 pb-safe">กดธงหมากรุกเมื่อหารถเจอเพื่อล้างข้อมูล</p>
+
+        </main>
+    </div>
+
+    <script>
+        // โครงสร้างข้อมูลสถานที่
+        const locationData = {
+            'the_tree': {
+                name: 'The Tree Interchange',
+                floors: ['2', '2A', '3', '3A', '4', '4A', '5', '5A', '6']
+            }
+        };
+
+        const currentLocationKey = 'the_tree'; 
+
+        // State เก็บข้อมูล
+        let currentData = {
+            locationKey: currentLocationKey,
+            floor: '-',
+            time: null,
+            photo: null
+        };
+
+        // เปลี่ยนวิธีเซฟข้อมูล ให้มั่นใจว่าข้อมูลเขียนลง LocalStorage ทันที
+        function persistData(data) {
+            try {
+                localStorage.setItem('parkingDataTreeApp', JSON.stringify(data));
+                return true;
+            } catch (e) {
+                console.error('Error saving data:', e);
+                // แสดง Alert กรณี Storage เต็ม (ส่วนใหญ่เกิดจากรูป)
+                if (e.name === 'QuotaExceededError') {
+                    alert('พื้นที่เก็บข้อมูลในเครื่องเต็ม กรุณาลบรูปภาพเดิมออกก่อนครับ');
+                }
+                return false;
+            }
+        }
+
+        // ฟังก์ชันโหลดข้อมูลตอนเปิดเว็บ
+        function initApp() {
+            try {
+                const savedData = localStorage.getItem('parkingDataTreeApp');
+                if (savedData) {
+                    currentData = JSON.parse(savedData);
+                } else {
+                    currentData.locationKey = currentLocationKey;
+                }
+            } catch (e) {
+                console.error('Error loading data:', e);
+            }
+            renderButtons();
+            updateUI();
+        }
+
+        // ฟังก์ชันสร้างปุ่ม
+        function renderButtons() {
+            const floors = locationData[currentLocationKey].floors;
+            const floorContainer = document.getElementById('floor-buttons');
+            
+            floorContainer.innerHTML = floors.map(f => `
+                <button onclick="saveData('floor', '${f}')" 
+                        class="floor-btn py-4 rounded-xl font-bold text-xl transition-colors duration-200 shadow-sm border btn-press
+                        ${currentData.floor === f ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}">
+                    ${f}
+                </button>
+            `).join('');
+        }
+
+        // ฟังก์ชันบันทึกข้อมูลและเวลา
+        function saveData(type, value) {
+            currentData[type] = value;
+            currentData.time = new Date().toISOString();
+            
+            if(persistData(currentData)) {
+                renderButtons(); 
+                updateUI();
+                showToast();
+            }
+        }
+
+        // ฟังก์ชันจัดการอัปโหลดรูปและย่อขนาด
+        function handlePhotoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    // ลดความละเอียดลงอีก เพื่อความชัวร์ว่า LocalStorage จะไม่เต็มไวเกินไป
+                    const MAX_WIDTH = 600; 
+                    let scaleSize = 1;
+                    
+                    if(img.width > MAX_WIDTH) {
+                        scaleSize = MAX_WIDTH / img.width;
+                    }
+                    
+                    canvas.width = img.width * scaleSize;
+                    canvas.height = img.height * scaleSize;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    // แปลงกลับเป็น Base64 แบบ JPEG คุณภาพ 60%
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                    
+                    saveData('photo', dataUrl);
+                }
+                img.src = e.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+
+        // อัปเดตหน้าจอแสดงผล
+        function updateUI() {
+            document.getElementById('display-floor').innerText = currentData.floor;
+            document.getElementById('display-location').innerText = locationData[currentData.locationKey].name;
+            
+            if (currentData.time) {
+                const dateObj = new Date(currentData.time);
+                document.getElementById('display-time').innerHTML = `<i class="fa-solid fa-clock mr-1"></i> บันทึกล่าสุด: ${dateObj.toLocaleDateString('th-TH')} เวลา ${dateObj.toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'})} น.`;
+            } else {
+                document.getElementById('display-time').innerHTML = `<i class="fa-regular fa-clock"></i> ยังไม่มีข้อมูล`;
+            }
+
+            const photoContainer = document.getElementById('photo-container');
+            const displayPhoto = document.getElementById('display-photo');
+            
+            if (currentData.photo) {
+                displayPhoto.src = currentData.photo;
+                photoContainer.classList.remove('hidden');
+            } else {
+                photoContainer.classList.add('hidden');
+                displayPhoto.src = '';
+            }
+        }
+
+        // ลบเฉพาะรูป
+        function clearPhoto() {
+            currentData.photo = null;
+            persistData(currentData);
+            updateUI();
+        }
+
+        // ล้างข้อมูลทั้งหมด
+        function clearAllData() {
+            currentData = { locationKey: currentLocationKey, floor: '-', time: null, photo: null };
+            localStorage.removeItem('parkingDataTreeApp');
+            renderButtons();
+            updateUI();
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('opacity-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+            }, 1500);
+        }
+
+        // Event Listener สำหรับตอนที่แอปกลับมาเปิดใช้งาน (Resume)
+        // เพื่อให้แน่ใจว่าดึงข้อมูลล่าสุดเสมอ
+        document.addEventListener("visibilitychange", function() {
+            if (document.visibilityState === 'visible') {
+                initApp();
+            }
+        });
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
